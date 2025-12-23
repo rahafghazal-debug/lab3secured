@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>🛍️ متجر إلكتروني</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Tahoma;background:#f3f4f6}
+.hidden{display:none}
+button{cursor:pointer;border:none;border-radius:10px;font-weight:bold}
+input{width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:1px solid #ccc}
+.container{max-width:1200px;margin:auto;padding:20px}
+
+/* HEADER */
+header{
+  background:linear-gradient(to right,#7c3aed,#2563eb);
+  color:white;padding:15px;
+  display:flex;justify-content:space-between;align-items:center
+}
+header button{background:rgba(255,255,255,.2);color:white;padding:8px 15px}
+
+/* AUTH */
+.auth{
+  max-width:400px;margin:80px auto;background:white;
+  padding:30px;border-radius:20px;
+  box-shadow:0 10px 30px rgba(0,0,0,.15)
+}
+.auth button{
+  width:100%;padding:12px;
+  background:linear-gradient(to right,#7c3aed,#2563eb);
+  color:white;margin-top:10px
+}
+
+/* PRODUCTS */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:20px}
+.card{
+  background:white;border-radius:20px;
+  box-shadow:0 8px 20px rgba(0,0,0,.15);
+  overflow:hidden;transition:.3s
+}
+.card:hover{transform:scale(1.03)}
+.img{font-size:80px;text-align:center;padding:30px;background:#ede9fe}
+.qty-box{
+  display:flex;justify-content:center;align-items:center;gap:10px
+}
+.qty-box button{
+  width:35px;height:35px;border-radius:50%;
+  background:#7c3aed;color:white;font-size:18px
+}
+
+/* CART */
+.cart-item{
+  background:white;padding:15px;border-radius:15px;
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:10px
+}
+.cart-controls button{
+  width:30px;height:30px;border-radius:50%;
+  background:#7c3aed;color:white
+}
+.remove-btn{background:#ef4444 !important}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div id="loginPage" class="auth">
+  <h2>تسجيل الدخول</h2>
+  <input id="loginUser" placeholder="اسم المستخدم">
+  <input id="loginPass" type="password" placeholder="كلمة المرور">
+  <button onclick="login()">دخول</button>
+  <button onclick="showSignup()" style="background:#e5e7eb;color:#000">إنشاء حساب</button>
+  <p>admin / admin123</p>
+</div>
+
+<!-- SIGNUP -->
+<div id="signupPage" class="auth hidden">
+  <h2>إنشاء حساب</h2>
+  <input id="signupUser" placeholder="اسم المستخدم">
+  <input id="signupPass" type="password" placeholder="كلمة المرور">
+  <button onclick="signup()">تسجيل</button>
+  <button onclick="showLogin()" style="background:#e5e7eb;color:#000">رجوع</button>
+</div>
+
+<!-- HEADER -->
+<header id="header" class="hidden">
+  <div>👤 <span id="currentUser"></span></div>
+  <div>
+    <button onclick="goHome()">🏠</button>
+    <button onclick="goCart()">🛒 (<span id="cartCount">0</span>)</button>
+    <button id="adminBtn" onclick="goAdmin()" class="hidden">⚙️ Admin</button>
+    <button onclick="logout()">خروج</button>
+  </div>
+</header>
+
+<!-- HOME -->
+<div id="homePage" class="container hidden">
+  <h2>المنتجات</h2>
+  <div id="products" class="grid"></div>
+</div>
+
+<!-- PRODUCT DETAILS -->
+<div id="productPage" class="container hidden"></div>
+
+<!-- CART -->
+<div id="cartPage" class="container hidden">
+  <h2>سلة المشتريات</h2>
+  <div id="cartItems"></div>
+  <h3 id="total"></h3>
+  <button onclick="checkout()">تأكيد الطلب</button>
+</div>
+
+<!-- ADMIN -->
+<div id="adminPage" class="container hidden">
+  <h2>إدارة المستخدمين</h2>
+  <div id="adminUsers"></div>
+</div>
+
+<script>
+/* DATA */
+let users = JSON.parse(localStorage.getItem("users")) || [
+  {username:"admin",password:"admin123"}
+];
+
+let products=[
+ {id:1,name:"لابتوب HP",price:500,image:"💻",desc:"لابتوب قوي"},
+ {id:2,name:"هاتف Samsung",price:300,image:"📱",desc:"هاتف ذكي"},
+ {id:3,name:"سماعات",price:150,image:"🎧",desc:"صوت ممتاز"},
+ {id:4,name:"ساعة ذكية",price:200,image:"⌚",desc:"تتبع اللياقة"}
+];
+
+let currentUser=null;
+let cart=[];
+
+/* COOKIES */
+function setCookie(name,value){
+ document.cookie = name+"="+value+"; path=/";
+}
+function getCookie(name){
+ let m = document.cookie.match(new RegExp("(^| )"+name+"=([^;]+)"));
+ return m ? m[2] : null;
+}
+
+/* AUTH */
+function login(){
+ let u=loginUser.value,p=loginPass.value;
+ let user=users.find(x=>x.username===u&&x.password===p);
+ if(!user)return alert("بيانات خاطئة");
+
+ currentUser=user;
+ setCookie("Admin","false");   // <-- الدور يحدد من request
+ cart=JSON.parse(localStorage.getItem("cart_"+u))||[];
+ showApp();
+}
+
+function signup(){
+ let u=signupUser.value,p=signupPass.value;
+ if(users.find(x=>x.username===u))return alert("موجود");
+ users.push({username:u,password:p});
+ localStorage.setItem("users",JSON.stringify(users));
+ alert("تم إنشاء الحساب");
+ showLogin();
+}
+
+function logout(){
+ document.cookie="Admin=;expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+ location.reload();
+}
+
+/* NAV */
+function showApp(){
+ loginPage.classList.add("hidden");
+ signupPage.classList.add("hidden");
+ header.classList.remove("hidden");
+ homePage.classList.remove("hidden");
+ currentUser.innerText=currentUser.username;
+
+ if(getCookie("Admin")==="true"){
+   adminBtn.classList.remove("hidden");
+ }
+
+ renderProducts();
+ renderCart();
+}
+
+function hideAll(){
+ homePage.classList.add("hidden");
+ cartPage.classList.add("hidden");
+ productPage.classList.add("hidden");
+ adminPage.classList.add("hidden");
+}
+function goHome(){hideAll();homePage.classList.remove("hidden")}
+function goCart(){hideAll();cartPage.classList.remove("hidden")}
+function goAdmin(){
+ if(getCookie("Admin")!=="true") return alert("Access denied");
+ hideAll();
+ adminPage.classList.remove("hidden");
+ renderAdmin();
+}
+
+/* PRODUCTS */
+function renderProducts(){
+ let div=document.getElementById("products");
+ div.innerHTML="";
+ products.forEach(p=>{
+  let item=cart.find(i=>i.id===p.id);
+  let qty=item?item.qty:0;
+  div.innerHTML+=`
+   <div class="card">
+    <div class="img" onclick="openProduct(${p.id})">${p.image}</div>
+    <div class="container">
+     <h3>${p.name}</h3>
+     <p>$${p.price}</p>
+     <div class="qty-box">
+      <button onclick="changeQty(${p.id},-1)">−</button>
+      <strong>${qty}</strong>
+      <button onclick="changeQty(${p.id},1)">+</button>
+     </div>
+    </div>
+   </div>`;
+ });
+}
+
+function openProduct(id){
+ let p=products.find(x=>x.id===id);
+ hideAll();
+ productPage.classList.remove("hidden");
+ productPage.innerHTML=`
+  <h2>${p.name}</h2>
+  <div style="font-size:100px">${p.image}</div>
+  <p>${p.desc}</p>
+  <h3>$${p.price}</h3>
+  <button onclick="changeQty(${p.id},1)">أضف للسلة</button>
+ `;
+}
+
+/* CART */
+function changeQty(id,delta){
+ let p=products.find(x=>x.id===id);
+ let i=cart.find(x=>x.id===id);
+ if(!i && delta>0)cart.push({...p,qty:1});
+ else if(i){
+  i.qty+=delta;
+  if(i.qty<=0)cart=cart.filter(x=>x.id!==id);
+ }
+ saveCart();renderProducts();renderCart();
+}
+
+function renderCart(){
+ cartItems.innerHTML="";
+ let total=0;
+ cart.forEach(i=>{
+  total+=i.price*i.qty;
+  cartItems.innerHTML+=`
+   <div class="cart-item">
+    <span>${i.image} ${i.name}</span>
+    <div class="cart-controls">
+     <button onclick="changeQty(${i.id},-1)">−</button>
+     <strong>${i.qty}</strong>
+     <button onclick="changeQty(${i.id},1)">+</button>
+     <button class="remove-btn" onclick="removeItem(${i.id})">🗑</button>
+    </div>
+   </div>`;
+ });
+ cartCount.innerText=cart.length;
+ total.innerText="المجموع: $"+total;
+}
+
+function removeItem(id){
+ cart=cart.filter(x=>x.id!==id);
+ saveCart();renderProducts();renderCart();
+}
+
+function checkout(){
+ if(!cart.length)return alert("السلة فارغة");
+ alert("تم إرسال الطلب بنجاح ✅");
+ cart=[];saveCart();renderProducts();renderCart();
+}
+
+function saveCart(){
+ localStorage.setItem("cart_"+currentUser.username,JSON.stringify(cart));
+}
+
+/* ADMIN */
+function renderAdmin(){
+ adminUsers.innerHTML="";
+ users.forEach(u=>{
+  if(u.username!=="admin"){
+   adminUsers.innerHTML+=`
+    <div class="cart-item">
+     <span>${u.username}</span>
+     <button class="remove-btn" onclick="deleteUser('${u.username}')">حذف</button>
+    </div>`;
+  }
+ });
+}
+
+function deleteUser(u){
+ users=users.filter(x=>x.username!==u);
+ localStorage.setItem("users",JSON.stringify(users));
+ renderAdmin();
+}
+
+/* TOGGLE */
+function showSignup(){loginPage.classList.add("hidden");signupPage.classList.remove("hidden")}
+function showLogin(){signupPage.classList.add("hidden");loginPage.classList.remove("hidden")}
+</script>
+
+</body>
+</html>
